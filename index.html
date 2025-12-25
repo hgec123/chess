@@ -168,7 +168,9 @@ function drawBoard(){
       div.textContent=cell;
       if(selected && selected.r===r && selected.c===c) div.classList.add("selected");
       if(selected){
-        getValidMoves(selected.r,selected.c).forEach(m=>{if(m.r===r && m.c===c) div.classList.add("valid-move");});
+        getValidMoves(selected.r,selected.c).forEach(m=>{
+          if(m.r===r && m.c===c) div.classList.add("valid-move");
+        });
       }
       div.onclick=()=>clickCell(r,c);
       boardElement.appendChild(div);
