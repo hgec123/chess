@@ -43,7 +43,7 @@
 <body>
 
 <h1>♟️ שחמט מתקדם – גרסה סופית</h1>
-<p>בחר כלי כדי לראות מהלכים חוקיים</p>
+<p>לחץ על כלי כדי לראות מהלכים חוקיים</p>
 
 <div id="board"></div>
 <div id="message">בחר כלי כדי להתחיל</div>
@@ -69,16 +69,16 @@ let board = [
   ["♖","♘","♗","♕","♔","♗","♘","♖"]
 ];
 
+// פונקציות עזר
 function getColor(piece){
   if(piece.match(/[♙♖♘♗♕♔]/)) return "white";
   if(piece.match(/[♟♜♞♝♛♚]/)) return "black";
   return null;
 }
-
 function isInside(r,c){ return r>=0 && r<=7 && c>=0 && c<=7; }
-
 function cloneBoard(){ return board.map(row=>row.slice()); }
 
+// פונקציה לבדוק אם המלך יהיה בטוח אחרי מהלך
 function isKingSafeAfterMove(color,from,to){
   const temp = cloneBoard();
   temp[to.r][to.c] = temp[from.r][from.c];
@@ -101,7 +101,7 @@ function isKingSafeAfterMove(color,from,to){
   return true;
 }
 
-// גרסה פשוטה של getValidMoves בלי בדיקות שח (משתמשת בתוך isKingSafeAfterMove)
+// גרסה בסיסית של getValidMoves ללא בדיקות שח
 function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
   const piece = tempBoard[r][c];
   const color = getColor(piece);
@@ -116,6 +116,7 @@ function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
   };
   const knightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
 
+  // חיילים
   if(piece==="♙"){ if(r>0 && tempBoard[r-1][c]==="") moves.push({r:r-1,c:c});
     if(r===6 && tempBoard[4][c]==="") moves.push({r:4,c:c});
     if(r>0 && c>0 && getColor(tempBoard[r-1][c-1])==="black") moves.push({r:r-1,c:c-1});
@@ -126,6 +127,8 @@ function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
     if(r<7 && c>0 && getColor(tempBoard[r+1][c-1])==="white") moves.push({r:r+1,c:c-1});
     if(r<7 && c<7 && getColor(tempBoard[r+1][c+1])==="white") moves.push({r:r+1,c:c+1});
   }
+
+  // כלי קווים/אלכסון
   if(["♖","♜","♗","♝","♕","♛"].includes(piece)){
     directions[piece].forEach(d=>{
       let nr=r+d[0], nc=c+d[1];
@@ -137,21 +140,25 @@ function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
       }
     });
   }
+
+  // פרש
   if(["♘","♞"].includes(piece)){
     knightMoves.forEach(d=>{
       const nr=r+d[0], nc=c+d[1];
       if(isInside(nr,nc) && getColor(tempBoard[nr][nc])!==color) moves.push({r:nr,c:nc});
     });
   }
+
   return moves;
 }
 
-// getValidMoves עיקרית – מחזירה רק מהלכים חוקיים
+// פונקציה עיקרית – מחזירה מהלכים חוקיים בלבד
 function getValidMoves(r,c){
   const raw = getValidMovesSimple(r,c,board);
   return raw.filter(m=>isKingSafeAfterMove(getColor(board[r][c]),{r,c},m));
 }
 
+// ציור הלוח
 function drawBoard(){
   boardElement.innerHTML="";
   board.forEach((row,r)=>{
@@ -169,6 +176,7 @@ function drawBoard(){
   });
 }
 
+// טיפול בלחיצה
 function clickCell(r,c){
   if(selected){
     const valid=getValidMoves(selected.r,selected.c);
@@ -190,7 +198,9 @@ function clickCell(r,c){
   drawBoard();
 }
 
+// התחלת המשחק
 drawBoard();
 </script>
+
 </body>
 </html>
