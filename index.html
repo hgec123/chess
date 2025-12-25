@@ -78,7 +78,7 @@ function getColor(piece){
 function isInside(r,c){ return r>=0 && r<=7 && c>=0 && c<=7; }
 function cloneBoard(){ return board.map(row=>row.slice()); }
 
-// פונקציה לבדוק אם המלך יהיה בטוח אחרי מהלך
+// בדיקה אם המלך בטוח אחרי מהלך
 function isKingSafeAfterMove(color,from,to){
   const temp = cloneBoard();
   temp[to.r][to.c] = temp[from.r][from.c];
@@ -101,7 +101,7 @@ function isKingSafeAfterMove(color,from,to){
   return true;
 }
 
-// גרסה בסיסית של getValidMoves ללא בדיקות שח
+// גרסה בסיסית של getValidMovesSimple
 function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
   const piece = tempBoard[r][c];
   const color = getColor(piece);
@@ -112,31 +112,39 @@ function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
     "♗": [[1,1],[1,-1],[-1,1],[-1,-1]],
     "♝": [[1,1],[1,-1],[-1,1],[-1,-1]],
     "♕": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],
-    "♛": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
+    "♛": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],
+    "♔": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],
+    "♚": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
   };
   const knightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
 
   // חיילים
-  if(piece==="♙"){ if(r>0 && tempBoard[r-1][c]==="") moves.push({r:r-1,c:c});
-    if(r===6 && tempBoard[4][c]==="") moves.push({r:4,c:c});
+  if(piece==="♙"){
+    if(r>0 && tempBoard[r-1][c]==="") moves.push({r:r-1,c:c});
+    if(r===6 && tempBoard[5][c]==="" && tempBoard[4][c]==="") moves.push({r:4,c:c});
     if(r>0 && c>0 && getColor(tempBoard[r-1][c-1])==="black") moves.push({r:r-1,c:c-1});
     if(r>0 && c<7 && getColor(tempBoard[r-1][c+1])==="black") moves.push({r:r-1,c:c+1});
   }
-  if(piece==="♟"){ if(r<7 && tempBoard[r+1][c]==="") moves.push({r:r+1,c:c});
-    if(r===1 && tempBoard[3][c]==="") moves.push({r:3,c:c});
+  if(piece==="♟"){
+    if(r<7 && tempBoard[r+1][c]==="") moves.push({r:r+1,c:c});
+    if(r===1 && tempBoard[2][c]==="" && tempBoard[3][c]==="") moves.push({r:3,c:c});
     if(r<7 && c>0 && getColor(tempBoard[r+1][c-1])==="white") moves.push({r:r+1,c:c-1});
     if(r<7 && c<7 && getColor(tempBoard[r+1][c+1])==="white") moves.push({r:r+1,c:c+1});
   }
 
   // כלי קווים/אלכסון
-  if(["♖","♜","♗","♝","♕","♛"].includes(piece)){
+  if(["♖","♜","♗","♝","♕","♛","♔","♚"].includes(piece)){
     directions[piece].forEach(d=>{
       let nr=r+d[0], nc=c+d[1];
-      while(isInside(nr,nc)){
-        const target = tempBoard[nr][nc];
-        if(target==="") moves.push({r:nr,c:nc});
-        else { if(getColor(target)!==color) moves.push({r:nr,c:nc}); break; }
-        nr+=d[0]; nc+=d[1];
+      if(["♔","♚"].includes(piece)){
+        if(isInside(nr,nc) && getColor(tempBoard[nr][nc])!==color) moves.push({r:nr,c:nc});
+      } else {
+        while(isInside(nr,nc)){
+          const target = tempBoard[nr][nc];
+          if(target==="") moves.push({r:nr,c:nc});
+          else { if(getColor(target)!==color) moves.push({r:nr,c:nc}); break; }
+          nr+=d[0]; nc+=d[1];
+        }
       }
     });
   }
@@ -152,7 +160,7 @@ function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
   return moves;
 }
 
-// פונקציה עיקרית – מחזירה מהלכים חוקיים בלבד
+// מהלכים חוקיים בלבד
 function getValidMoves(r,c){
   const raw = getValidMovesSimple(r,c,board);
   return raw.filter(m=>isKingSafeAfterMove(getColor(board[r][c]),{r,c},m));
@@ -178,24 +186,54 @@ function drawBoard(){
   });
 }
 
+// בדיקה אם המלך בשח
+function isKingInCheck(color){
+  let kingPos = null;
+  for(let i=0;i<8;i++){
+    for(let j=0;j<8;j++){
+      if(board[i][j]===(color==="white"?"♔":"♚")) kingPos={r:i,c:j};
+    }
+  }
+  if(!kingPos) return false;
+  for(let i=0;i<8;i++){
+    for(let j=0;j<8;j++){
+      if(getColor(board[i][j])!==color && board[i][j]!==""){
+        const moves = getValidMovesSimple(i,j,board,false);
+        if(moves.some(m=>m.r===kingPos.r && m.c===kingPos.c)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // טיפול בלחיצה
 function clickCell(r,c){
+  const cell = board[r][c];
   if(selected){
     const valid=getValidMoves(selected.r,selected.c);
     const moveHere=valid.find(m=>m.r===r && m.c===c);
     if(moveHere){
       board[r][c]=board[selected.r][selected.c];
       board[selected.r][selected.c]="";
-      turn = (turn==="white")?"black":"white";
       selected=null;
-      message.textContent="מהלך בוצע! תור "+turn;
-    } else if(board[r][c]!==""){
+      turn = (turn==="white")?"black":"white";
+      if(isKingInCheck(turn)){
+        message.textContent="מהלך בוצע! תור "+turn+" – שח למלך!";
+      } else {
+        message.textContent="מהלך בוצע! תור "+turn;
+      }
+    } else if(cell!=="" && getColor(cell)===turn){
       selected={r,c};
       message.textContent="בחר משבצת יעד";
-    } else { selected=null; message.textContent="בחר כלי כדי להתחיל"; }
-  } else if(board[r][c]!==""){
+    } else {
+      selected=null;
+      message.textContent="בחר כלי כדי להתחיל";
+    }
+  } else if(cell!=="" && getColor(cell)===turn){
     selected={r,c};
     message.textContent="בחר משבצת יעד";
+  } else {
+    message.textContent="זה לא תורך!";
   }
   drawBoard();
 }
@@ -203,6 +241,6 @@ function clickCell(r,c){
 // התחלת המשחק
 drawBoard();
 </script>
- 
+
 </body>
 </html>
