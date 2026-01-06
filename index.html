@@ -1,291 +1,216 @@
 <!DOCTYPE html>
-<html lang="he">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>שחמט מתקדם – גרסה סופית</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body {
-    font-family: "Segoe UI Symbol", "Arial", sans-serif;
-    text-align: center;
-    background: #e2e8f0;
-    direction: rtl;
-    padding-bottom: 50px;
-  }
-  h1 { margin-top: 20px; }
-  #board {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    width: 480px;
-    height: 480px;
-    margin: 20px auto;
-    border: 6px solid #333;
-    box-shadow: 0 0 20px rgba(0,0,0,0.2);
-  }
-  .cell {
-    width: 60px;
-    height: 60px;
-    font-size: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.2s;
-  }
-  .dark { background: #4ade80; }
-  .light { background: #bbf7d0; }
-  .selected { outline: 4px solid gold; }
-  .valid-move { background: #facc15 !important; opacity: 0.7; }
-  #message { margin-top: 10px; font-weight: bold; font-size: 18px; }
-</style>
+  <meta charset="UTF-8" />
+  <title>Chess Training Master PRO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chessboard -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+
+  <!-- Chess.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    .piece-value {
+      position: absolute;
+      background: rgba(0,0,0,.75);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
 </head>
-<body>
 
-<h1>♟️ שחמט מתקדם – גרסה סופית</h1>
-<p>לחץ על כלי כדי לראות מהלכים חוקיים</p>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+<div class="container mx-auto px-4 py-6">
 
-<div id="board"></div>
-<div id="message">בחר כלי כדי להתחיל</div>
+  <h1 class="text-4xl font-bold text-center text-yellow-400 mb-6">
+    ♟️ Chess Training Master PRO
+  </h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Board -->
+    <div class="lg:col-span-2 bg-gray-800 rounded-xl p-4">
+      <div id="board" class="mx-auto" style="width:480px"></div>
+
+      <div class="flex flex-wrap gap-2 justify-center mt-4">
+        <button data-action="reset" class="btn bg-blue-600">Start</button>
+        <button data-action="clear" class="btn bg-red-600">Clear</button>
+        <button data-action="flip" class="btn bg-purple-600">Flip</button>
+        <button data-action="analyze" class="btn bg-green-600">Analyze</button>
+        <button data-action="values" class="btn bg-yellow-600">Values</button>
+      </div>
+
+      <div class="mt-4 bg-gray-900 p-3 rounded text-sm">
+        <div id="status"></div>
+        <div id="fen" class="font-mono text-xs mt-1"></div>
+      </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="space-y-6">
+
+      <!-- Evaluation -->
+      <div class="bg-gray-800 p-4 rounded-xl">
+        <h2 class="text-xl font-bold text-green-400 mb-2">Evaluation</h2>
+        <div id="eval" class="text-3xl font-bold">+0.0</div>
+        <div id="evalText" class="text-sm text-gray-300"></div>
+      </div>
+
+      <!-- Puzzle -->
+      <div class="bg-gray-800 p-4 rounded-xl">
+        <h2 class="text-xl font-bold text-blue-400 mb-2">Puzzles</h2>
+        <button data-puzzle="easy" class="btn w-full bg-gray-700 mb-2">Easy</button>
+        <button data-puzzle="medium" class="btn w-full bg-gray-700 mb-2">Medium</button>
+        <button data-puzzle="hard" class="btn w-full bg-gray-700">Hard</button>
+      </div>
+
+      <!-- Piece Values -->
+      <div class="bg-gray-800 p-4 rounded-xl">
+        <h2 class="text-xl font-bold text-yellow-400 mb-2">Material</h2>
+        <div id="material"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
 
 <script>
-const boardElement = document.getElementById("board");
-const message = document.getElementById("message");
+class ChessApp {
+  constructor() {
+    this.game = new Chess();
+    this.board = Chessboard("board", {
+      draggable: true,
+      position: "start",
+      onDrop: this.onDrop.bind(this),
+      onSnapEnd: () => this.board.position(this.game.fen())
+    });
 
-let selected = null;
-let turn = "white";
-let enPassant = null;
-let movedKings = {white:false, black:false};
-let movedRooks = {white:{h1:false,a1:false}, black:{h8:false,a8:false}};
+    this.valuesVisible = false;
+    this.valueEls = [];
 
-let board = [
-  ["♜","♞","♝","♛","♚","♝","♞","♜"],
-  ["♟","♟","♟","♟","♟","♟","♟","♟"],
-  ["","","","","","","",""],
-  ["","","","","","","",""],
-  ["","","","","","","",""],
-  ["","","","","","","",""],
-  ["♙","♙","♙","♙","♙","♙","♙","♙"],
-  ["♖","♘","♗","♕","♔","♗","♘","♖"]
-];
+    this.PIECE_VALUES = {
+      p: 1, n: 3.2, b: 3.3, r: 5, q: 9, k: 0
+    };
 
-// פונקציות עזר
-function getColor(piece){
-  if(piece.match(/[♙♖♘♗♕♔]/)) return "white";
-  if(piece.match(/[♟♜♞♝♛♚]/)) return "black";
-  return null;
-}
-function isInside(r,c){ return r>=0 && r<=7 && c>=0 && c<=7; }
-function cloneBoard(){ return board.map(row=>row.slice()); }
+    this.PUZZLES = {
+      easy: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w",
+      medium: "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w",
+      hard: "r2q1rk1/pp2ppbp/2p2np1/6B1/3PP1b1/Q1P2N2/P4PPP/3RKB1R w"
+    };
 
-// בדיקה אם המלך בטוח אחרי מהלך
-function isKingSafeAfterMove(color,from,to){
-  const temp = cloneBoard();
-  temp[to.r][to.c] = temp[from.r][from.c];
-  temp[from.r][from.c] = "";
-  let kingPos = null;
-  for(let i=0;i<8;i++){
-    for(let j=0;j<8;j++){
-      if(temp[i][j]===(color==="white"?"♔":"♚")) kingPos={r:i,c:j};
-    }
-  }
-  if(!kingPos) return false;
-  for(let i=0;i<8;i++){
-    for(let j=0;j<8;j++){
-      if(getColor(temp[i][j])!==color && temp[i][j]!==""){
-        const moves = getValidMovesSimple(i,j,temp,false);
-        if(moves.some(m=>m.r===kingPos.r && m.c===kingPos.c)) return false;
-      }
-    }
-  }
-  return true;
-}
-
-// גרסה בסיסית של getValidMovesSimple כולל הצרכה וEn Passant
-function getValidMovesSimple(r,c,tempBoard,enPassantFlag=true){
-  const piece = tempBoard[r][c];
-  const color = getColor(piece);
-  const moves = [];
-  const directions = {
-    "♖": [[1,0],[-1,0],[0,1],[0,-1]],
-    "♜": [[1,0],[-1,0],[0,1],[0,-1]],
-    "♗": [[1,1],[1,-1],[-1,1],[-1,-1]],
-    "♝": [[1,1],[1,-1],[-1,1],[-1,-1]],
-    "♕": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],
-    "♛": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],
-    "♔": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]],
-    "♚": [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]
-  };
-  const knightMoves = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-
-  // חיילים
-  if(piece==="♙"){
-    if(r>0 && tempBoard[r-1][c]==="") moves.push({r:r-1,c:c});
-    if(r===6 && tempBoard[5][c]==="" && tempBoard[4][c]==="") moves.push({r:4,c:c});
-    if(r>0 && c>0 && getColor(tempBoard[r-1][c-1])==="black") moves.push({r:r-1,c:c-1});
-    if(r>0 && c<7 && getColor(tempBoard[r-1][c+1])==="black") moves.push({r:r-1,c:c+1});
-    if(r===3 && enPassant && enPassant.r===r-1 && enPassant.c===c-1) moves.push({r:r-1,c:c-1,enPassant:true});
-    if(r===3 && enPassant && enPassant.r===r-1 && enPassant.c===c+1) moves.push({r:r-1,c:c+1,enPassant:true});
-  }
-  if(piece==="♟"){
-    if(r<7 && tempBoard[r+1][c]==="") moves.push({r:r+1,c:c});
-    if(r===1 && tempBoard[2][c]==="" && tempBoard[3][c]==="") moves.push({r:3,c:c});
-    if(r<7 && c>0 && getColor(tempBoard[r+1][c-1])==="white") moves.push({r:r+1,c:c-1});
-    if(r<7 && c<7 && getColor(tempBoard[r+1][c+1])==="white") moves.push({r:r+1,c:c+1});
-    if(r===4 && enPassant && enPassant.r===r+1 && enPassant.c===c-1) moves.push({r:r+1,c:c-1,enPassant:true});
-    if(r===4 && enPassant && enPassant.r===r+1 && enPassant.c===c+1) moves.push({r:r+1,c:c+1,enPassant:true});
+    this.bindUI();
+    this.updateUI();
   }
 
-  // כלי קווים/אלכסון כולל הצרכה למלך
-  if(["♖","♜","♗","♝","♕","♛","♔","♚"].includes(piece)){
-    directions[piece].forEach(d=>{
-      let nr=r+d[0], nc=c+d[1];
-      if(["♔","♚"].includes(piece)){
-        if(isInside(nr,nc) && getColor(tempBoard[nr][nc])!==color) moves.push({r:nr,c:nc});
-        // הצרכה
-        if(!movedKings[color]){
-          // הצרכה קצרה (למלך)
-          if(nc+2<=7 && tempBoard[r][c+1]==="" && tempBoard[r][c+2]==="" && !movedRooks[color].h1) moves.push({r:r,c:c+2,castling:"kingside"});
-          // הצרכה ארוכה (למלך)
-          if(nc-3>=0 && tempBoard[r][c-1]==="" && tempBoard[r][c-2]==="" && tempBoard[r][c-3]==="" && !movedRooks[color].a1) moves.push({r:r,c:c-2,castling:"queenside"});
-        }
-      } else {
-        while(isInside(nr,nc)){
-          const target = tempBoard[nr][nc];
-          if(target==="") moves.push({r:nr,c:nc});
-          else { if(getColor(target)!==color) moves.push({r:nr,c:nc}); break; }
-          nr+=d[0]; nc+=d[1];
-        }
-      }
+  bindUI() {
+    document.querySelectorAll("[data-action]").forEach(btn => {
+      btn.onclick = () => this.handleAction(btn.dataset.action);
+    });
+
+    document.querySelectorAll("[data-puzzle]").forEach(btn => {
+      btn.onclick = () => this.loadPuzzle(btn.dataset.puzzle);
     });
   }
 
-  // פרש
-  if(["♘","♞"].includes(piece)){
-    knightMoves.forEach(d=>{
-      const nr=r+d[0], nc=c+d[1];
-      if(isInside(nr,nc) && getColor(tempBoard[nr][nc])!==color) moves.push({r:nr,c:nc});
+  handleAction(action) {
+    if (action === "reset") this.game.reset();
+    if (action === "clear") this.game.clear();
+    if (action === "flip") this.board.flip();
+    if (action === "analyze") this.analyze();
+    if (action === "values") this.toggleValues();
+
+    this.board.position(this.game.fen());
+    this.updateUI();
+  }
+
+  onDrop(from, to) {
+    const move = this.game.move({ from, to, promotion: "q" });
+    if (!move) return "snapback";
+    this.updateUI();
+  }
+
+  updateUI() {
+    document.getElementById("fen").textContent = this.game.fen();
+    document.getElementById("status").textContent =
+      this.game.in_checkmate() ? "Checkmate" :
+      this.game.in_draw() ? "Draw" :
+      `${this.game.turn() === "w" ? "White" : "Black"} to move`;
+
+    this.evaluate();
+    if (this.valuesVisible) this.showValues();
+  }
+
+  evaluate() {
+    let score = 0;
+    this.game.board().flat().forEach(p => {
+      if (!p) return;
+      score += (p.color === "w" ? 1 : -1) * this.PIECE_VALUES[p.type];
+    });
+
+    document.getElementById("eval").textContent =
+      (score > 0 ? "+" : "") + score.toFixed(1);
+    document.getElementById("evalText").textContent =
+      Math.abs(score) < 0.5 ? "Equal" :
+      score > 0 ? "White better" : "Black better";
+
+    document.getElementById("material").textContent =
+      "Material diff: " + score.toFixed(1);
+  }
+
+  toggleValues() {
+    this.valuesVisible = !this.valuesVisible;
+    this.clearValues();
+    if (this.valuesVisible) this.showValues();
+  }
+
+  showValues() {
+    this.clearValues();
+    document.querySelectorAll("#board .square-55d63").forEach(square => {
+      const piece = square.querySelector("img");
+      if (!piece) return;
+      const type = piece.src.slice(-6, -5).toLowerCase();
+      const val = this.PIECE_VALUES[type];
+      if (!val) return;
+
+      const el = document.createElement("div");
+      el.className = "piece-value";
+      el.textContent = val;
+      square.appendChild(el);
+      this.valueEls.push(el);
     });
   }
 
-  return moves;
-}
-
-// מהלכים חוקיים בלבד
-function getValidMoves(r,c){
-  const raw = getValidMovesSimple(r,c,board);
-  return raw.filter(m=>isKingSafeAfterMove(getColor(board[r][c]),{r,c},m));
-}
-
-// ציור הלוח
-function drawBoard(){
-  boardElement.innerHTML="";
-  board.forEach((row,r)=>{
-    row.forEach((cell,c)=>{
-      const div=document.createElement("div");
-      div.className="cell "+((r+c)%2?"dark":"light");
-      div.textContent=cell;
-      if(selected && selected.r===r && selected.c===c) div.classList.add("selected");
-      if(selected){
-        getValidMoves(selected.r,selected.c).forEach(m=>{
-          if(m.r===r && m.c===c) div.classList.add("valid-move");
-        });
-      }
-      div.onclick=()=>clickCell(r,c);
-      boardElement.appendChild(div);
-    });
-  });
-}
-
-// בדיקה אם המלך בשח
-function isKingInCheck(color){
-  let kingPos = null;
-  for(let i=0;i<8;i++){
-    for(let j=0;j<8;j++){
-      if(board[i][j]===(color==="white"?"♔":"♚")) kingPos={r:i,c:j};
-    }
+  clearValues() {
+    this.valueEls.forEach(e => e.remove());
+    this.valueEls = [];
   }
-  if(!kingPos) return false;
-  for(let i=0;i<8;i++){
-    for(let j=0;j<8;j++){
-      if(getColor(board[i][j])!==color && board[i][j]!==""){
-        const moves = getValidMovesSimple(i,j,board,false);
-        if(moves.some(m=>m.r===kingPos.r && m.c===kingPos.c)) return true;
-      }
-    }
-  }
-  return false;
-}
 
-// טיפול בקידום חייל
-function handlePawnPromotion(r,c){
-  const piece = board[r][c];
-  if(piece==="♙" && r===0 || piece==="♟" && r===7){
-    let choice = prompt("בחר כלי לקידום: ♕ מלכה, ♖ צריח, ♗ רץ, ♘ פרש","♕");
-    if(!["♕","♖","♗","♘"].includes(choice)) choice = "♕";
-    board[r][c]=choice;
+  loadPuzzle(key) {
+    this.game.load(this.PUZZLES[key]);
+    this.board.position(this.game.fen());
+    this.updateUI();
+  }
+
+  analyze() {
+    alert("Engine-style analysis coming next 😉");
   }
 }
 
-// טיפול בלחיצה
-function clickCell(r,c){
-  const cell = board[r][c];
-  if(selected){
-    const valid=getValidMoves(selected.r,selected.c);
-    const moveHere=valid.find(m=>m.r===r && m.c===c);
-    if(moveHere){
-      // הצרכה
-      if(moveHere.castling){
-        if(moveHere.castling==="kingside"){
-          board[r][c] = board[selected.r][selected.c];
-          board[selected.r][selected.c]="";
-          board[r][c-1] = board[r][7]; board[r][7]="";
-        } else if(moveHere.castling==="queenside"){
-          board[r][c] = board[selected.r][selected.c];
-          board[selected.r][selected.c]="";
-          board[r][c+1] = board[r][0]; board[r][0]="";
-        }
-        movedKings[turn]=true;
-      } else if(moveHere.enPassant){
-        board[r][c] = board[selected.r][selected.c];
-        board[selected.r][selected.c]="";
-        // הסרת החייל שנלכד
-        board[selected.r][c]="";
-      } else {
-        board[r][c] = board[selected.r][selected.c];
-        board[selected.r][selected.c]="";
-        // הגדרת enPassant לחייל שקפץ 2 משבצות
-        if(board[r][c]==="♙" && selected.r===6 && r===4) enPassant={r:r,c:c};
-        else if(board[r][c]==="♟" && selected.r===1 && r===3) enPassant={r:r,c:c};
-        else enPassant=null;
-      }
-
-      handlePawnPromotion(r,c);
-      selected=null;
-      turn = (turn==="white")?"black":"white";
-      if(isKingInCheck(turn)){
-        message.textContent="מהלך בוצע! תור "+turn+" – שח למלך!";
-      } else {
-        message.textContent="מהלך בוצע! תור "+turn;
-      }
-    } else if(cell!=="" && getColor(cell)===turn){
-      selected={r,c};
-      message.textContent="בחר משבצת יעד";
-    } else {
-      selected=null;
-      message.textContent="בחר כלי כדי להתחיל";
-    }
-  } else if(cell!=="" && getColor(cell)===turn){
-    selected={r,c};
-    message.textContent="בחר משבצת יעד";
-  } else {
-    message.textContent="זה לא תורך!";
-  }
-  drawBoard();
-}
-
-// התחלת המשחק
-drawBoard();
+new ChessApp();
 </script>
 
 </body>
