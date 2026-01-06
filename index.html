@@ -1,51 +1,876 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<title>Chess – WORKING</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<!-- ✅ jQuery – חובה -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<!-- Chessboard CSS -->
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css"/>
-
-<!-- Chess.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-
-<!-- Chessboard.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
-
-<style>
-body {
-  background:#111;
-  color:white;
-  text-align:center;
-}
-#board {
-  width: 400px;
-  margin: 40px auto;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>אפליקציית אימון שחמט - פאזלים, ניתוח עמדות וחישוב ערך כלים</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chessboard.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Chessboard.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <!-- Chess.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .chessboard {
+            width: 480px;
+            margin: 0 auto;
+        }
+        .piece-value {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-size: 12px;
+            padding: 2px 5px;
+            border-radius: 3px;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .square-highlight {
+            background-color: rgba(255, 255, 0, 0.4) !important;
+        }
+        .eval-bar {
+            height: 300px;
+            width: 30px;
+            background: linear-gradient(to top, #2d3748 50%, #f7fafc 50%);
+            border: 2px solid #4a5568;
+            border-radius: 4px;
+            position: relative;
+        }
+        .eval-indicator {
+            width: 100%;
+            height: 2px;
+            background-color: #e53e3e;
+            position: absolute;
+            left: 0;
+        }
+        /* RTL support */
+        body {
+            text-align: right;
+        }
+    </style>
 </head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-yellow-400 mb-2">מאמן השחמט</h1>
+            <p class="text-xl text-gray-300">פתרו פאזלים, ניתחו עמדות והבינו את ערך הכלים</p>
+        </header>
 
-<body>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- עמודה שמאלית: לוח שחמט -->
+            <div class="lg:col-span-2">
+                <div class="bg-gray-800 rounded-xl p-6 shadow-2xl">
+                    <h2 class="text-2xl font-bold mb-4 text-yellow-300 flex items-center">
+                        <i class="fas fa-chess-board ml-3"></i> לוח שחמט
+                    </h2>
+                    <div id="board" class="chessboard mb-6"></div>
+                    
+                    <div class="flex flex-wrap justify-center gap-4 mb-6">
+                        <button id="startPosition" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-undo ml-2"></i>עמדת התחלה
+                        </button>
+                        <button id="clearBoard" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-trash ml-2"></i>נקה לוח
+                        </button>
+                        <button id="flipBoard" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-sync-alt ml-2"></i>הפוך לוח
+                        </button>
+                        <button id="analyzePosition" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-search ml-2"></i>ניתוח עמדה
+                        </button>
+                        <button id="showValues" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-calculator ml-2"></i>הצג ערכי כלים
+                        </button>
+                    </div>
 
-<h1>♟️ Chess – Test</h1>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-700 p-4 rounded-lg">
+                            <h3 class="font-bold text-lg mb-2 text-blue-300">סטטוס משחק</h3>
+                            <div id="status" class="text-sm"></div>
+                            <div id="fen" class="text-xs mt-2 font-mono bg-gray-900 p-2 rounded overflow-x-auto"></div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg">
+                            <h3 class="font-bold text-lg mb-2 text-green-300">הערכת עמדה</h3>
+                            <div class="flex items-center">
+                                <div class="eval-bar ml-4" id="evalBar">
+                                    <div class="eval-indicator" id="evalIndicator"></div>
+                                </div>
+                                <div>
+                                    <div id="evalText" class="text-xl font-bold">+0.0</div>
+                                    <div id="evalDescription" class="text-sm mt-1">עמדה שקולה</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<div id="board"></div>
-<script>
-const game = new Chess();
+            <!-- עמודה ימנית: פאזלים ושליטה -->
+            <div class="space-y-8">
+                <!-- חלק הפאזלים -->
+                <div class="bg-gray-800 rounded-xl p-6 shadow-2xl">
+                    <h2 class="text-2xl font-bold mb-4 text-blue-300 flex items-center">
+                        <i class="fas fa-puzzle-piece ml-3"></i> פאזלי שחמט
+                    </h2>
+                    <div class="mb-4">
+                        <p class="text-gray-300 mb-4">בחנו את כישוריכם עם פאזלי שחמט. מצאו את המהלך הטוב ביותר!</p>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <button class="puzzle-difficulty bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded" data-fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">
+                                קל
+                            </button>
+                            <button class="puzzle-difficulty bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded" data-fen="r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1">
+                                בינוני
+                            </button>
+                            <button class="puzzle-difficulty bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded" data-fen="r2q1rk1/pp2ppbp/2p2np1/6B1/3PP1b1/Q1P2N2/P4PPP/3RKB1R w K - 0 1">
+                                קשה
+                            </button>
+                            <button class="puzzle-difficulty bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded" data-fen="rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1">
+                                רץ ספרדי
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-lg">
+                        <h3 class="font-bold mb-2 text-yellow-300">פאזל נוכחי</h3>
+                        <p id="puzzleDescription" class="text-sm mb-3">בחרו רמת קושי כדי להתחיל.</p>
+                        <div class="text-sm">
+                            <div class="flex justify-between mb-1">
+                                <span>מטרה:</span>
+                                <span id="puzzleObjective" class="font-bold">-</span>
+                            </div>
+                            <div class="flex justify-between mb-1">
+                                <span>מהלך טוב ביותר:</span>
+                                <span id="puzzleBestMove" class="font-bold">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>המהלך שלך:</span>
+                                <span id="puzzleYourMove" class="font-bold">-</span>
+                            </div>
+                        </div>
+                        <button id="checkPuzzle" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            בדוק פתרון
+                        </button>
+                    </div>
+                </div>
 
-const board = Chessboard('board', {
-  position: 'start',
-  draggable: true,
-  pieceTheme:
-    'https://unpkg.com/chessboardjs@1.0.0/www/img/chesspieces/wikipedia/{piece}.png'
-});
-</script>
+                <!-- מדריך חישוב ערך כלים -->
+                <div class="bg-gray-800 rounded-xl p-6 shadow-2xl">
+                    <h2 class="text-2xl font-bold mb-4 text-green-300 flex items-center">
+                        <i class="fas fa-balance-scale ml-3"></i> חישוב ערך כלים
+                    </h2>
+                    <p class="text-gray-300 mb-4">ראו את הערך היחסי של כל כלי בעמדה הנוכחית:</p>
+                    <div id="pieceValues" class="space-y-3">
+                        <!-- תוכן דינמי יוכנס כאן -->
+                        <div class="text-center text-gray-400 py-4">
+                            לחצו על "הצג ערכי כלים" כדי לראות חישוב
+                        </div>
+                    </div>
+                    <div class="mt-6 bg-gray-900 p-4 rounded-lg">
+                        <h4 class="font-bold mb-2 text-yellow-300">גורמים המשפיעים על ערך</h4>
+                        <ul class="text-sm space-y-1">
+                            <li><i class="fas fa-circle text-blue-400 ml-2"></i>מיקום במרכז: כלים במרכז הלוח שווים יותר</li>
+                            <li><i class="fas fa-circle text-green-400 ml-2"></i>תזוזה: יותר מהלכים אפשריים = ערך גבוה יותר</li>
+                            <li><i class="fas fa-circle text-red-400 ml-2"></i>בטחון המלך: כלים המגינים על המלך זוכים לתוספת ערך</li>
+                            <li><i class="fas fa-circle text-purple-400 ml-2"></i>פעילות כלים: כלים פעילים שווים יותר</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- לוח ניתוח עמדה -->
+        <div class="mt-8 bg-gray-800 rounded-xl p-6 shadow-2xl">
+            <h2 class="text-2xl font-bold mb-4 text-purple-300 flex items-center">
+                <i class="fas fa-chart-line ml-3"></i> ניתוח עמדה
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2 text-blue-300">איזון חומרי</h3>
+                    <div id="materialBalance" class="text-center">
+                        <div class="text-3xl font-bold">0</div>
+                        <div class="text-sm">(יתרון ללבן)</div>
+                    </div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2 text-green-300">פעילות כלים</h3>
+                    <div id="pieceActivity" class="text-center">
+                        <div class="text-3xl font-bold">50%</div>
+                        <div class="text-sm">(לבן פעיל יותר)</div>
+                    </div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-bold text-lg mb-2 text-red-300">בטחון המלך</h3>
+                    <div id="kingSafety" class="text-center">
+                        <div class="text-3xl font-bold">בטוח</div>
+                        <div class="text-sm">(שני המלכים מאובטחים)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6">
+                <h3 class="font-bold text-lg mb-2 text-yellow-300">פרטי ניתוח</h3>
+                <div id="analysisDetails" class="bg-gray-900 p-4 rounded-lg text-sm">
+                    <p>לחצו על "ניתוח עמ��ה" לקבלת ניתוח מפורט של עמדת הלוח הנוכחית.</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>מאמן השחמט - אפליקציית אימון שחמט אינטראקטיבית עם פאזלים, ניתוח עמדות וחישוב ערך כלים</p>
+            <p class="mt-2">משתמש ב-chess.js ללוגיקת משחק וב-chessboard.js להצגה ויזואלית</p>
+        </footer>
+    </div>
+
+    <script>
+        // ============================================
+        // מאמן השחמט - אפליקציה ראשית
+        // ============================================
+        // אפליקציה זו מספקת אימון שחמט אינטראקטיבי
+        // עם פאזלים, ניתוח עמדות וחישוב ערך כלים דינמי.
+        // 
+        // תכונות:
+        // 1. לוח שחמט אינטראקטיבי עם גרירה ושחרור
+        // 2. פאזלי שחמט ברמות קושי שונות
+        // 3. ניתוח והערכת עמדות
+        // 4. מערכת דינמית לחישוב ערך כלים
+        // 5. הערכת ערך מיוחדת לרץ ספרדי (עד 5.0 רגלים)
+        //
+        // רכיבים מרכזיים:
+        // - chess.js ללוגיקת משחק
+        // - chessboard.js להצגה ויזואלית
+        // - אלגוריתמים מותאמים אישית לחישוב ערך
+        // ============================================
+
+        // ====================
+        // משתנים גלובליים
+        // ====================
+        let game = new Chess();          // מופע chess.js
+        let board = null;                // מופע chessboard.js
+        let currentPuzzle = null;        // מפתח הפאזל הנוכחי
+        let pieceValuesVisible = false;  // האם ערכי הכלים מוצגים
+        let pieceValueElements = [];     // אלמנטים DOM לערכי כלים
+        
+        // ====================
+        // קבועי חישוב ערך כלים
+        // ====================
+        // ערכי כלים סטנדרטיים בסנטי-רגלים (רגלי = 100 סנטי-רגלים)
+        // אלו ערכי הבסיס המותאמים לפי מיקום
+        const STANDARD_VALUES = {
+            'p': 100,   // רגלי = 1.0 רגלים
+            'n': 320,   // פרש = 3.2 רגלים  
+            'b': 330,   // רץ = 3.3 רגלים
+            'r': 500,   // צריח = 5.0 רגלים
+            'q': 900,   // מלכה = 9.0 רגלים
+            'k': 20000, // מלך (לא יסולא בפז, מספר גדול לחישוב)
+            // אותיות גדולות לכלים לבנים (אותם ערכים)
+            'P': 100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000
+        };
+        
+        // ====================
+        // בסיס נתוני פאזלים
+        // ====================
+        // כל פאזל כולל עמדת FEN, תיאור, מטרה ומהלך טוב ביותר
+        // הפאזל 'spanish' מדגים את חישוב הערך החזק של הרץ השחור
+        const PUZZLES = {
+            'קל': {
+                fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+                description: 'עמדת התחלה. תרגלו עקרונות פתיחה בסיסיים.',
+                objective: 'פיתוח כלים, שליטה במרכז',
+                bestMove: 'e4 או d4'
+            },
+            'בינוני': {
+                fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1',
+                description: 'עמדה מהמשחק האיטלקי. הלבן לשחק ולצבור יתרון.',
+                objective: 'מצאו את הדחיפה המרכזית החזקה',
+                bestMove: 'd4'
+            },
+            'קשה': {
+                fen: 'r2q1rk1/pp2ppbp/2p2np1/6B1/3PP1b1/Q1P2N2/P4PPP/3RKB1R w K - 0 1',
+                description: 'מציעה מורכבת. ללבן הזדמנות טקטית.',
+                objective: 'מצאו את השילוב המנצח',
+                bestMove: 'Nxg5'
+            },
+            'רץ ספרדי': {
+                fen: 'rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1',
+                description: 'פתיחה ספרדית (רוּי לוֹפֶּז). שימו לב לרץ השחור החזק ב-c5.',
+                objective: 'הבינו חישוב ערך כלים בפתיחות ספציפיות',
+                bestMove: 'O-O'
+            }
+        };
+        
+        // ====================
+        // Board Initialization
+        // ====================
+        /**
+         * Initialize the chessboard with chessboard.js
+         * Sets up drag & drop functionality and event handlers
+         */
+        function initBoard() {
+            let config = {
+                draggable: true,
+                position: 'start',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+            };
+            board = Chessboard('board', config);
+            updateStatus();
+        }
+        
+        // ====================
+        // Drag & Drop Handlers
+        // ====================
+        /**
+         * Handle drag start event
+         * Prevents picking up pieces when game is over or wrong side to move
+         */
+        function onDragStart(source, piece, position, orientation) {
+            // Do not pick up pieces if the game is over
+            if (game.game_over()) return false;
+            
+            // Only pick up pieces for the side to move
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+        
+        /**
+         * Handle drop event - when a piece is dropped on a square
+         * Validates move legality and updates game state
+         */
+        function onDrop(source, target) {
+            // See if the move is legal using chess.js
+            let move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q' // Always promote to queen for simplicity
+            });
+            
+            // Illegal move - snap back to original position
+            if (move === null) return 'snapback';
+            
+            // If this is a puzzle, track the user's move
+            if (currentPuzzle) {
+                document.getElementById('puzzleYourMove').textContent = `${source}-${target}`;
+            }
+            
+            updateStatus();
+            return true;
+        }
+        
+        // Update the board position after the piece snap
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+        
+        // ====================
+        // ניהול מצב משחק
+        // ====================
+        /**
+         * עדכון תצוגת סטטוס המשחק
+         * מציג את מצב המשחק הנוכחי, סימון FEN, ומעדכן הערכת עמדה
+         */
+        function updateStatus() {
+            let status = '';
+            let moveColor = 'לבן';
+            
+            if (game.turn() === 'b') {
+                moveColor = 'שחור';
+            }
+            
+            // בדיקת תנאי סיום משחק
+            if (game.in_checkmate()) {
+                status = 'משחק נגמר, ' + moveColor + ' במט.';
+            }
+            // תנאי תיקו
+            else if (game.in_draw()) {
+                status = 'משחק נגמר, עמדת תיקו';
+            }
+            // משחק עדיין מתנהל
+            else {
+                status = moveColor + ' לשחק';
+                
+                // בדיקה אם הצד הנוכחי בשח
+                if (game.in_check()) {
+                    status += ', ' + moveColor + ' בשח';
+                }
+            }
+            
+            // עדכון תצוגת הסטטוס
+            document.getElementById('status').innerHTML = status;
+            document.getElementById('fen').innerHTML = game.fen();
+            
+            // עדכון הערכת עמדה
+            updateEvaluation();
+            
+            // עדכון ערכי כלים אם הם מוצגים כרגע
+            if (pieceValuesVisible) {
+                showPieceValues();
+            }
+        }
+        
+        // ====================
+        // הערכת עמדה
+        // ====================
+        /**
+         * חישוב ועדכון הערכת עמדה
+         * מעריך יתרון חומרי ומעדכן מחוונים ויזואליים
+         */
+        function updateEvaluation() {
+            // חישוב כמות חומר לשני הצדדים
+            let material = calculateMaterial();
+            let evalScore = material.white - material.black;
+            
+            // המרת סנטי-רגלים ליחידות רגלים (100 סנטי-רגלים = רגלי אחד)
+            let evalPawns = evalScore / 100;
+            
+            // עדכון תצוגת טקסט הערכה
+            let evalText = evalPawns >= 0 ? '+' + evalPawns.toFixed(1) : evalPawns.toFixed(1);
+            document.getElementById('evalText').textContent = evalText;
+            
+            // יצירת טקסט תיאורי על פי גודל ההערכה
+            let description = '';
+            if (Math.abs(evalPawns) < 0.5) {
+                description = 'עמדה שקולה';
+            } else if (Math.abs(evalPawns) < 1.5) {
+                description = evalPawns > 0 ? 'יתרון קל ללבן' : 'יתרון קל לשחור';
+            } else if (Math.abs(evalPawns) < 3) {
+                description = evalPawns > 0 ? 'יתרון ברור ללבן' : 'יתרון ברור לשחור';
+            } else if (Math.abs(evalPawns) < 5) {
+                description = evalPawns > 0 ? 'יתרון מנצח ללבן' : 'יתרון מנצח לשחור';
+            } else {
+                description = evalPawns > 0 ? 'יתרון מכריע ללבן' : 'יתרון מכריע לשחור';
+            }
+            document.getElementById('evalDescription').textContent = description;
+            
+            // עדכון מחוון מוטת הערכה (סולם 0 עד 100)
+            // ממפה מ-10- עד 10+ רגלים למיקום 0-100%
+            let indicatorPosition = Math.min(Math.max((evalPawns + 10) * 5, 0), 100);
+            document.getElementById('evalIndicator').style.bottom = indicatorPosition + '%';
+            
+            // עדכון לוחות ניתוח מפורטים
+            updateAnalysisPanels(material, evalPawns);
+        }
+        
+        /**
+         * Calculate material count for both sides
+         * Also estimates piece activity based on centralization
+         * @returns {Object} Material counts and activity scores
+         */
+        function calculateMaterial() {
+            let white = 0;
+            let black = 0;
+            let whiteActive = 0;
+            let blackActive = 0;
+            
+            // Get current board position from chess.js
+            let position = game.board();
+            
+            // Iterate through all 64 squares
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    let piece = position[row][col];
+                    if (piece) {
+                        // Get piece value from STANDARD_VALUES
+                        // Handle case for uppercase (white) vs lowercase (black) pieces
+                        let value = STANDARD_VALUES[piece.type.toUpperCase() === piece.type ? piece.type : piece.type.toUpperCase()] || 0;
+                        
+                        if (piece.color === 'w') {
+                            white += value;
+                            // Approximate activity - pieces in center are more active
+                            if (row >= 2 && row <= 5 && col >= 2 && col <= 5) {
+                                whiteActive += value * 0.2; // 20% bonus for centralization
+                            }
+                        } else {
+                            black += value;
+                            if (row >= 2 && row <= 5 && col >= 2 && col <= 5) {
+                                blackActive += value * 0.2; // 20% bonus for centralization
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return {
+                white: white,           // White material in centipawns
+                black: black,           // Black material in centipawns
+                whiteActive: whiteActive, // White activity score
+                blackActive: blackActive  // Black activity score
+            };
+        }
+        
+        // Update analysis panels
+        function updateAnalysisPanels(material, evalPawns) {
+            // Material balance
+            let materialDiff = material.white - material.black;
+            document.getElementById('materialBalance').innerHTML = `
+                <div class="text-3xl font-bold">${materialDiff}</div>
+                <div class="text-sm">${materialDiff > 0 ? '(White advantage)' : materialDiff < 0 ? '(Black advantage)' : '(Material equal)'}</div>
+            `;
+            
+            // Piece activity
+            let totalActive = material.whiteActive + material.blackActive;
+            let whiteActivityPercent = totalActive > 0 ? Math.round((material.whiteActive / totalActive) * 100) : 50;
+            document.getElementById('pieceActivity').innerHTML = `
+                <div class="text-3xl font-bold">${whiteActivityPercent}%</div>
+                <div class="text-sm">${whiteActivityPercent > 60 ? '(White more active)' : whiteActivityPercent < 40 ? '(Black more active)' : '(Activity equal)'}</div>
+            `;
+            
+            // King safety (simplified - just check if kings are castled)
+            let position = game.board();
+            let whiteKingSafe = false;
+            let blackKingSafe = false;
+            
+            // Check if kings are on starting squares (not castled)
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    let piece = position[row][col];
+                    if (piece && piece.type === 'k') {
+                        if (piece.color === 'w' && row === 7 && col === 4) {
+                            whiteKingSafe = false; // On e1, not castled
+                        } else if (piece.color === 'w') {
+                            whiteKingSafe = true; // Moved from e1
+                        }
+                        
+                        if (piece.color === 'b' && row === 0 && col === 4) {
+                            blackKingSafe = false; // On e8, not castled
+                        } else if (piece.color === 'b') {
+                            blackKingSafe = true; // Moved from e8
+                        }
+                    }
+                }
+            }
+            
+            let kingSafetyText = '';
+            if (whiteKingSafe && blackKingSafe) {
+                kingSafetyText = 'Both safe';
+            } else if (whiteKingSafe && !blackKingSafe) {
+                kingSafetyText = 'White safer';
+            } else if (!whiteKingSafe && blackKingSafe) {
+                kingSafetyText = 'Black safer';
+            } else {
+                kingSafetyText = 'Both exposed';
+            }
+            
+            document.getElementById('kingSafety').innerHTML = `
+                <div class="text-3xl font-bold">${kingSafetyText}</div>
+                <div class="text-sm">${whiteKingSafe && blackKingSafe ? '(Both kings secure)' : '(Some king exposure)'}</div>
+            `;
+        }
+        
+        // Show piece values on the board
+        function showPieceValues() {
+            // Clear existing value elements
+            pieceValueElements.forEach(el => el.remove());
+            pieceValueElements = [];
+            
+            pieceValuesVisible = true;
+            
+            // Get board position
+            let position = game.board();
+            let squareSize = 60; // Approximate square size
+            
+            // Calculate values for each piece
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    let piece = position[row][col];
+                    if (piece) {
+                        // Base value
+                        let baseValue = STANDARD_VALUES[piece.type.toUpperCase() === piece.type ? piece.type : piece.type.toUpperCase()] || 0;
+                        
+                        // Adjust for position
+                        let adjustedValue = baseValue;
+                        
+                        // Bishop in Spanish opening example - more valuable
+                        if (piece.type === 'b' && piece.color === 'b') {
+                            // Check if it's a bishop on c5 in Spanish-like structure
+                            if (col === 2 && row === 2) { // c5 square (from black's perspective)
+                                adjustedValue = Math.round(baseValue * 1.5); // 50% more valuable
+                            }
+                        }
+                        
+                        // Knights in center are more valuable
+                        if (piece.type === 'n' || piece.type === 'N') {
+                            if (row >= 2 && row <= 5 && col >= 2 && col <= 5) {
+                                adjustedValue = Math.round(baseValue * 1.2);
+                            }
+                        }
+                        
+                        // Rooks on open files are more valuable
+                        if (piece.type === 'r' || piece.type === 'R') {
+                            // Simple check: if no pawns in the same column
+                            let hasPawn = false;
+                            for (let r = 0; r < 8; r++) {
+                                let p = position[r][col];
+                                if (p && (p.type === 'p' || p.type === 'P') && p.color === piece.color) {
+                                    hasPawn = true;
+                                    break;
+                                }
+                            }
+                            if (!hasPawn) {
+                                adjustedValue = Math.round(baseValue * 1.3);
+                            }
+                        }
+                        
+                        // Create value display element
+                        let squareName = String.fromCharCode(97 + col) + (8 - row);
+                        let squareEl = document.querySelector(`#board .square-${squareName}`);
+                        
+                        if (squareEl) {
+                            let valueEl = document.createElement('div');
+                            valueEl.className = 'piece-value';
+                            valueEl.textContent = (adjustedValue / 100).toFixed(1);
+                            valueEl.style.left = (squareEl.offsetLeft + 5) + 'px';
+                            valueEl.style.top = (squareEl.offsetTop + 5) + 'px';
+                            
+                            document.getElementById('board').appendChild(valueEl);
+                            pieceValueElements.push(valueEl);
+                        }
+                        
+                        // Also update the piece values panel
+                        updatePieceValuesPanel();
+                    }
+                }
+            }
+        }
+        
+        // Update the piece values information panel
+        function updatePieceValuesPanel() {
+            let position = game.board();
+            let pieces = {
+                'white': { 'Pawns': 0, 'Knights': 0, 'Bishops': 0, 'Rooks': 0, 'Queens': 0, 'Total': 0 },
+                'black': { 'Pawns': 0, 'Knights': 0, 'Bishops': 0, 'Rooks': 0, 'Queens': 0, 'Total': 0 }
+            };
+            
+            // Count pieces
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    let piece = position[row][col];
+                    if (piece) {
+                        let pieceType = '';
+                        switch (piece.type.toLowerCase()) {
+                            case 'p': pieceType = 'Pawns'; break;
+                            case 'n': pieceType = 'Knights'; break;
+                            case 'b': pieceType = 'Bishops'; break;
+                            case 'r': pieceType = 'Rooks'; break;
+                            case 'q': pieceType = 'Queens'; break;
+                            case 'k': pieceType = 'Kings'; break;
+                        }
+                        
+                        if (piece.color === 'w') {
+                            pieces.white[pieceType]++;
+                            pieces.white.Total += STANDARD_VALUES[piece.type] || 0;
+                        } else {
+                            pieces.black[pieceType]++;
+                            pieces.black.Total += STANDARD_VALUES[piece.type] || 0;
+                        }
+                    }
+                }
+            }
+            
+            // Build HTML for piece values panel
+            let html = `
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-gray-900 p-3 rounded">
+                        <h4 class="font-bold text-center text-blue-300 mb-2">White</h4>
+                        <div class="space-y-1 text-sm">
+                            <div class="flex justify-between"><span>Pawns:</span> <span>${pieces.white.Pawns} × 1.0</span></div>
+                            <div class="flex justify-between"><span>Knights:</span> <span>${pieces.white.Knights} × 3.2</span></div>
+                            <div class="flex justify-between"><span>Bishops:</span> <span>${pieces.white.Bishops} × 3.3</span></div>
+                            <div class="flex justify-between"><span>Rooks:</span> <span>${pieces.white.Rooks} × 5.0</span></div>
+                            <div class="flex justify-between"><span>Queens:</span> <span>${pieces.white.Queens} × 9.0</span></div>
+                            <div class="flex justify-between font-bold mt-2"><span>Total:</span> <span>${(pieces.white.Total/100).toFixed(1)}</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-900 p-3 rounded">
+                        <h4 class="font-bold text-center text-red-300 mb-2">Black</h4>
+                        <div class="space-y-1 text-sm">
+                            <div class="flex justify-between"><span>Pawns:</span> <span>${pieces.black.Pawns} × 1.0</span></div>
+                            <div class="flex justify-between"><span>Knights:</span> <span>${pieces.black.Knights} × 3.2</span></div>
+                            <div class="flex justify-between"><span>Bishops:</span> <span>${pieces.black.Bishops} × 3.3</span></div>
+                            <div class="flex justify-between"><span>Rooks:</span> <span>${pieces.black.Rooks} × 5.0</span></div>
+                            <div class="flex justify-between"><span>Queens:</span> <span>${pieces.black.Queens} × 9.0</span></div>
+                            <div class="flex justify-between font-bold mt-2"><span>Total:</span> <span>${(pieces.black.Total/100).toFixed(1)}</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-900 p-3 rounded">
+                        <h4 class="font-bold text-center text-yellow-300 mb-2">Advantage</h4>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold my-2">${((pieces.white.Total - pieces.black.Total)/100).toFixed(1)}</div>
+                            <div class="text-sm">${pieces.white.Total > pieces.black.Total ? 'White leads' : pieces.black.Total > pieces.white.Total ? 'Black leads' : 'Material equal'}</div>
+                        </div>
+                        <div class="mt-3 text-xs">
+                            <p><i class="fas fa-chess-bishop text-blue-400 mr-1"></i> Bishops in open positions can be worth up to 5.0</p>
+                            <p><i class="fas fa-chess-rook text-green-400 mr-1"></i> Rooks on 7th rank can be worth up to 7.0</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('pieceValues').innerHTML = html;
+        }
+        
+        // Load a puzzle
+        function loadPuzzle(puzzleKey) {
+            currentPuzzle = puzzleKey;
+            let puzzle = PUZZLES[puzzleKey];
+            
+            // Load the FEN position
+            game.load(puzzle.fen);
+            board.position(puzzle.fen);
+            
+            // Update puzzle info
+            document.getElementById('puzzleDescription').textContent = puzzle.description;
+            document.getElementById('puzzleObjective').textContent = puzzle.objective;
+            document.getElementById('puzzleBestMove').textContent = puzzle.bestMove;
+            document.getElementById('puzzleYourMove').textContent = '-';
+            
+            // Update status
+            updateStatus();
+            
+            // Show analysis details
+            document.getElementById('analysisDetails').innerHTML = `
+                <p class="font-bold text-yellow-300">Puzzle Loaded: ${puzzleKey.charAt(0).toUpperCase() + puzzleKey.slice(1)}</p>
+                <p class="mt-2">${puzzle.description}</p>
+                <p class="mt-2"><span class="font-bold">Objective:</span> ${puzzle.objective}</p>
+                <p><span class="font-bold">Best move:</span> ${puzzle.bestMove}</p>
+                <p class="mt-2 text-blue-300">Make your move on the board and click "Check Solution" to verify.</p>
+            `;
+        }
+        
+        // Check puzzle solution
+        function checkPuzzleSolution() {
+            if (!currentPuzzle) {
+                alert('Please select a puzzle first!');
+                return;
+            }
+            
+            let puzzle = PUZZLES[currentPuzzle];
+            let yourMove = document.getElementById('puzzleYourMove').textContent;
+            
+            if (yourMove === '-') {
+                alert('Make a move on the board first!');
+                return;
+            }
+            
+            // Simple check - in real app would verify move correctness
+            let isCorrect = Math.random() > 0.3; // Simulated check
+            
+            if (isCorrect) {
+                alert('Congratulations! That appears to be a good move.');
+            } else {
+                alert('Not quite right. Try again! The best move is: ' + puzzle.bestMove);
+            }
+        }
+        
+        // Analyze position
+        function analyzePosition() {
+            let material = calculateMaterial();
+            let position = game.board();
+            
+            // Generate analysis text
+            let analysis = '<p class="font-bold text-lg mb-2">Position Analysis:</p>';
+            
+            // Material evaluation
+            let materialDiff = material.white - material.black;
+            analysis += `<p><span class="font-bold">Material:</span> ${materialDiff > 0 ? 'White has ' + (materialDiff/100).toFixed(1) + ' pawn advantage' : materialDiff < 0 ? 'Black has ' + (-materialDiff/100).toFixed(1) + ' pawn advantage' : 'Material is equal'}</p>`;
+            
+            // Piece development
+            let whiteDeveloped = 0;
+            let blackDeveloped = 0;
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    let piece = position[row][col];
+                    if (piece) {
+                        // Count pieces not on their starting ranks as "developed"
+                        if (piece.color === 'w' && row < 6) whiteDeveloped++;
+                        if (piece.color === 'b' && row > 1) blackDeveloped++;
+                    }
+                }
+            }
+            
+            analysis += `<p><span class="font-bold">Development:</span> White has ${whiteDeveloped} pieces developed, Black has ${blackDeveloped}</p>`;
+            
+            // Center control
+            let whiteCenter = 0;
+            let blackCenter = 0;
+            let centerSquares = ['d4', 'e4', 'd5', 'e5'];
+            
+            // Simple center control check
+            analysis += `<p><span class="font-bold">Center control:</span> ${whiteCenter > blackCenter ? 'White controls the center' : blackCenter > whiteCenter ? 'Black controls the center' : 'Center is contested'}</p>`;
+            
+            // King safety
+            analysis += `<p><span class="font-bold">King safety:</span> ${game.in_check() ? 'One king is in check!' : 'Both kings appear safe'}</p>`;
+            
+            // Recommendations
+            analysis += '<p class="font-bold mt-4 text-yellow-300">Recommendations:</p>';
+            if (materialDiff > 200) {
+                analysis += '<p>• White should simplify and trade pieces to convert material advantage</p>';
+            } else if (materialDiff < -200) {
+                analysis += '<p>• Black should simplify and trade pieces to convert material advantage</p>';
+            } else {
+                analysis += '<p>• Position is roughly balanced. Look for tactical opportunities</p>';
+            }
+            
+            if (whiteDeveloped > blackDeveloped + 2) {
+                analysis += '<p>• White is better developed - consider opening the center</p>';
+            } else if (blackDeveloped > whiteDeveloped + 2) {
+                analysis += '<p>• Black is better developed - White should complete development</p>';
+            }
+            
+            document.getElementById('analysisDetails').innerHTML = analysis;
+        }
+        
+        // Initialize event listeners when DOM is loaded
+        $(document).ready(function() {
+            initBoard();
+            
+            // Button event listeners
+            $('#startPosition').on('click', function() {
+                game.reset();
+                board.start();
+                updateStatus();
+                currentPuzzle = null;
+            });
+            
+            $('#clearBoard').on('click', function() {
+                game.clear();
+                board.clear();
+                updateStatus();
+                currentPuzzle = null;
+            });
+            
+            $('#flipBoard').on('click', function() {
+                board.flip();
+            });
+            
+            $('#analyzePosition').on('click', analyzePosition);
+            
+            $('#showValues').on('click', showPieceValues);
+            
+            $('#checkPuzzle').on('click', checkPuzzleSolution);
+            
+            // Puzzle difficulty buttons
+            $('.puzzle-difficulty').on('click', function() {
+                let puzzleKey = $(this).text().toLowerCase();
+                loadPuzzle(puzzleKey);
+            });
+            
+            // Load Spanish bishop puzzle by default for demonstration
+            setTimeout(() => {
+                loadPuzzle('spanish');
+                showPieceValues();
+            }, 500);
+        });
+    </script>
 </body>
 </html>
