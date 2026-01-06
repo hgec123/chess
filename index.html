@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Chess Training – Git Compatible</title>
+<title>Chess Training – GitHub Pages</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <!-- Tailwind -->
@@ -31,14 +30,14 @@ href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.
 <body class="bg-gray-900 text-white min-h-screen flex flex-col items-center">
 
 <h1 class="text-3xl font-bold text-yellow-400 mt-6 mb-4">
-♟️ Chess Training (GitHub Pages)
+♟️ Chess Training
 </h1>
 
 <div id="board"></div>
 
 <div class="mt-4 flex gap-2">
-<button id="reset" class="bg-blue-600 px-4 py-2 rounded">Reset</button>
-<button id="flip" class="bg-purple-600 px-4 py-2 rounded">Flip</button>
+  <button id="reset" class="bg-blue-600 px-4 py-2 rounded">Reset</button>
+  <button id="flip" class="bg-purple-600 px-4 py-2 rounded">Flip</button>
 </div>
 
 <p id="status" class="mt-4 text-gray-300"></p>
@@ -52,7 +51,6 @@ document.addEventListener("DOMContentLoaded", () => {
     draggable: true,
     position: "start",
 
-    // ⭐ זה החלק הכי חשוב בשביל GitHub Pages ⭐
     pieceTheme:
       "https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png",
 
@@ -94,222 +92,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateStatus();
 });
-</script>
-
-</body>
-</html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Chess Training Master PRO</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Chessboard -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
-
-  <!-- Chess.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-
-  <!-- Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-  <style>
-    .piece-value {
-      position: absolute;
-      background: rgba(0,0,0,.75);
-      color: #fff;
-      font-size: 11px;
-      padding: 2px 4px;
-      border-radius: 4px;
-      pointer-events: none;
-      z-index: 10;
-    }
-  </style>
-</head>
-
-<body class="bg-gray-900 text-gray-100 min-h-screen">
-<div class="container mx-auto px-4 py-6">
-
-  <h1 class="text-4xl font-bold text-center text-yellow-400 mb-6">
-    ♟️ Chess Training Master PRO
-  </h1>
-
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-    <!-- Board -->
-    <div class="lg:col-span-2 bg-gray-800 rounded-xl p-4">
-      <div id="board" class="mx-auto" style="width:480px"></div>
-
-      <div class="flex flex-wrap gap-2 justify-center mt-4">
-        <button data-action="reset" class="btn bg-blue-600">Start</button>
-        <button data-action="clear" class="btn bg-red-600">Clear</button>
-        <button data-action="flip" class="btn bg-purple-600">Flip</button>
-        <button data-action="analyze" class="btn bg-green-600">Analyze</button>
-        <button data-action="values" class="btn bg-yellow-600">Values</button>
-      </div>
-
-      <div class="mt-4 bg-gray-900 p-3 rounded text-sm">
-        <div id="status"></div>
-        <div id="fen" class="font-mono text-xs mt-1"></div>
-      </div>
-    </div>
-
-    <!-- Side Panel -->
-    <div class="space-y-6">
-
-      <!-- Evaluation -->
-      <div class="bg-gray-800 p-4 rounded-xl">
-        <h2 class="text-xl font-bold text-green-400 mb-2">Evaluation</h2>
-        <div id="eval" class="text-3xl font-bold">+0.0</div>
-        <div id="evalText" class="text-sm text-gray-300"></div>
-      </div>
-
-      <!-- Puzzle -->
-      <div class="bg-gray-800 p-4 rounded-xl">
-        <h2 class="text-xl font-bold text-blue-400 mb-2">Puzzles</h2>
-        <button data-puzzle="easy" class="btn w-full bg-gray-700 mb-2">Easy</button>
-        <button data-puzzle="medium" class="btn w-full bg-gray-700 mb-2">Medium</button>
-        <button data-puzzle="hard" class="btn w-full bg-gray-700">Hard</button>
-      </div>
-
-      <!-- Piece Values -->
-      <div class="bg-gray-800 p-4 rounded-xl">
-        <h2 class="text-xl font-bold text-yellow-400 mb-2">Material</h2>
-        <div id="material"></div>
-      </div>
-
-    </div>
-  </div>
-
-</div>
-
-<script>
-class ChessApp {
-  constructor() {
-    this.game = new Chess();
-    this.board = Chessboard("board", {
-      draggable: true,
-      position: "start",
-      onDrop: this.onDrop.bind(this),
-      onSnapEnd: () => this.board.position(this.game.fen())
-    });
-
-    this.valuesVisible = false;
-    this.valueEls = [];
-
-    this.PIECE_VALUES = {
-      p: 1, n: 3.2, b: 3.3, r: 5, q: 9, k: 0
-    };
-
-    this.PUZZLES = {
-      easy: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w",
-      medium: "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w",
-      hard: "r2q1rk1/pp2ppbp/2p2np1/6B1/3PP1b1/Q1P2N2/P4PPP/3RKB1R w"
-    };
-
-    this.bindUI();
-    this.updateUI();
-  }
-
-  bindUI() {
-    document.querySelectorAll("[data-action]").forEach(btn => {
-      btn.onclick = () => this.handleAction(btn.dataset.action);
-    });
-
-    document.querySelectorAll("[data-puzzle]").forEach(btn => {
-      btn.onclick = () => this.loadPuzzle(btn.dataset.puzzle);
-    });
-  }
-
-  handleAction(action) {
-    if (action === "reset") this.game.reset();
-    if (action === "clear") this.game.clear();
-    if (action === "flip") this.board.flip();
-    if (action === "analyze") this.analyze();
-    if (action === "values") this.toggleValues();
-
-    this.board.position(this.game.fen());
-    this.updateUI();
-  }
-
-  onDrop(from, to) {
-    const move = this.game.move({ from, to, promotion: "q" });
-    if (!move) return "snapback";
-    this.updateUI();
-  }
-
-  updateUI() {
-    document.getElementById("fen").textContent = this.game.fen();
-    document.getElementById("status").textContent =
-      this.game.in_checkmate() ? "Checkmate" :
-      this.game.in_draw() ? "Draw" :
-      `${this.game.turn() === "w" ? "White" : "Black"} to move`;
-
-    this.evaluate();
-    if (this.valuesVisible) this.showValues();
-  }
-
-  evaluate() {
-    let score = 0;
-    this.game.board().flat().forEach(p => {
-      if (!p) return;
-      score += (p.color === "w" ? 1 : -1) * this.PIECE_VALUES[p.type];
-    });
-
-    document.getElementById("eval").textContent =
-      (score > 0 ? "+" : "") + score.toFixed(1);
-    document.getElementById("evalText").textContent =
-      Math.abs(score) < 0.5 ? "Equal" :
-      score > 0 ? "White better" : "Black better";
-
-    document.getElementById("material").textContent =
-      "Material diff: " + score.toFixed(1);
-  }
-
-  toggleValues() {
-    this.valuesVisible = !this.valuesVisible;
-    this.clearValues();
-    if (this.valuesVisible) this.showValues();
-  }
-
-  showValues() {
-    this.clearValues();
-    document.querySelectorAll("#board .square-55d63").forEach(square => {
-      const piece = square.querySelector("img");
-      if (!piece) return;
-      const type = piece.src.slice(-6, -5).toLowerCase();
-      const val = this.PIECE_VALUES[type];
-      if (!val) return;
-
-      const el = document.createElement("div");
-      el.className = "piece-value";
-      el.textContent = val;
-      square.appendChild(el);
-      this.valueEls.push(el);
-    });
-  }
-
-  clearValues() {
-    this.valueEls.forEach(e => e.remove());
-    this.valueEls = [];
-  }
-
-  loadPuzzle(key) {
-    this.game.load(this.PUZZLES[key]);
-    this.board.position(this.game.fen());
-    this.updateUI();
-  }
-
-  analyze() {
-    alert("Engine-style analysis coming next 😉");
-  }
-}
-
-new ChessApp();
 </script>
 
 </body>
